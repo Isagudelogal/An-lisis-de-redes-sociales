@@ -2,7 +2,13 @@
 title: "Taller 5"
 author: "Isabella Agudelo Galindo y Kevin Leal"
 date: "`r Sys.Date()`"
-output: html_document
+output:
+  html_document:
+    toc: true
+    theme: cerulean
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
 ---
 
 ```{r setup, include=FALSE}
@@ -389,15 +395,52 @@ sentiment_words <- bind_rows(positive_words, negative_words)
 sentiment_words %>%
   count(sentimiento)
 ```
-Con estos diccionarios podemos crear un gráfico de barras para cada personaje mostrando las palabras positivas y negativas con una frecuencia mayor que 2 en el caso de Petro y Duque, y mayor que 3 para Santos y Uribe.
+Se obtiene el porcentaje de palabras negativas y el de palabras positivas para cada discurso
 
+```{r}
+# ---------- petro ----------
+text_petro %>%
+  inner_join(sentiment_words) %>%
+  count(word, sentimiento, sort = TRUE) -> sent_petro
+
+sent_petro %>%
+  group_by(sentimiento) %>%
+  summarise(conteo = sum(n)/sum(sent_petro$n)*100) -> porc_petro
+# ---------- duque ----------
+text_duque %>%
+  inner_join(sentiment_words) %>%
+  count(word, sentimiento, sort = TRUE) -> sent_duque
+
+sent_duque %>%
+  group_by(sentimiento) %>%
+  summarise(conteo = sum(n)/sum(sent_duque$n)*100) -> porc_duque
+# ---------- santos ----------
+text_santos %>%
+  inner_join(sentiment_words) %>%
+  count(word, sentimiento, sort = TRUE) -> sent_santos
+
+sent_santos %>%
+  group_by(sentimiento) %>%
+  summarise(conteo = sum(n)/sum(sent_santos$n)*100) -> porc_santos
+# ---------- uribe ----------
+text_uribe %>%
+  inner_join(sentiment_words) %>%
+  count(word, sentimiento, sort = TRUE) -> sent_uribe
+
+sent_uribe %>%
+  group_by(sentimiento) %>%
+  summarise(conteo = sum(n)/sum(sent_uribe$n)*100) -> porc_uribe
+
+Porcentajes <- cbind(porc_uribe, porc_santos$conteo, porc_duque$conteo, porc_petro$conteo)
+colnames(Porcentajes) <- (c("Sentimiento", "% Uribe", "% Santos", "% Duque", "% Petro"))
+Porcentajes
+```
+Con estos diccionarios podemos crear un gráfico de barras para cada personaje mostrando las palabras positivas y negativas con una frecuencia mayor que 2 en el caso de Petro y Duque, y mayor que 3 para Santos y Uribe.
 ```{r, fig.width=11, fig.height=10, fig.align='center', echo=FALSE}
 ###### viz
 library(RColorBrewer)
 # ---------- petro ----------
-text_petro %>%
-  inner_join(sentiment_words) %>%
-  count(word, sentimiento, sort = TRUE) %>%
+sent_petro %>%
   filter(n > 2) %>%
   mutate(n = ifelse(sentimiento == "Negativo", -n, n)) %>%
   mutate(word = reorder(word, n)) %>%
@@ -410,9 +453,7 @@ text_petro %>%
          title = "Petro: Conteo por sentimiento") +
     theme_minimal() -> p1
 # ---------- duque ----------
-text_duque %>%
-  inner_join(sentiment_words) %>%
-  count(word, sentimiento, sort = TRUE) %>%
+sent_duque %>%
   filter(n > 2) %>%
   mutate(n = ifelse(sentimiento == "Negativo", -n, n)) %>%
   mutate(word = reorder(word, n)) %>%
@@ -425,9 +466,7 @@ text_duque %>%
          title = "Duque: Conteo por sentimiento") +
     theme_minimal() -> p2 
 # ---------- santos ----------
-text_santos %>%
-  inner_join(sentiment_words) %>%
-  count(word, sentimiento, sort = TRUE) %>%
+sent_santos %>%
   filter(n > 3) %>%
   mutate(n = ifelse(sentimiento == "Negativo", -n, n)) %>%
   mutate(word = reorder(word, n)) %>%
@@ -440,9 +479,7 @@ text_santos %>%
          title = "Santos: Conteo por sentimiento") +
     theme_minimal() -> p3 
 # ---------- uribe ----------
-text_uribe %>%
-  inner_join(sentiment_words) %>%
-  count(word, sentimiento, sort = TRUE) %>%
+sent_uribe %>%
   filter(n > 3) %>%
   mutate(n = ifelse(sentimiento == "Negativo", -n, n)) %>%
   mutate(word = reorder(word, n)) %>%
@@ -695,14 +732,24 @@ plot(gcc_duque, layout = layout_with_kk, vertex.color = adjustcolor('#FF6347', 0
 V(g_santos)$cluster <- clusters(graph = g_santos)$membership
 gcc_santos <- induced_subgraph(graph = g_santos, vids = which(V(g_santos)$cluster == which.max(clusters(graph = g_santos)$csize)))
 
+indices_santos <- which(degree(gcc_santos)>3)
+palabras_santos <- V(gcc_santos)$name[indices_santos]
+lab_santos<-rep(NA,vcount(gcc_santos))
+lab_santos[indices_santos]<- palabras_santos
+
 V(g_uribe)$cluster <- clusters(graph = g_uribe)$membership
 gcc_uribe <- induced_subgraph(graph = g_uribe, vids = which(V(g_uribe)$cluster == which.max(clusters(graph = g_uribe)$csize)))
 
+indices_uribe <- which(degree(gcc_uribe)>3)
+palabras_uribe <- V(gcc_uribe)$name[indices_uribe]
+lab_uribe<-rep(NA,vcount(gcc_uribe))
+lab_uribe[indices_uribe]<- palabras_uribe
+
 par(mfrow = c(1,2), mar = c(1,1,2,1), mgp = c(1,1,1), cex.main=2)
 set.seed(176)
-plot(gcc_santos, layout = layout_with_fr, vertex.color = adjustcolor('#FF6347', 0.1), vertex.frame.color = '#FF6347', vertex.size = 2*strength(gcc_santos),vertex.label=NA, edge.width = 3*E(g_santos)$weight/max(E(g_santos)$weight),edge.color="#FF6347", main = " Componente de Santos")
+plot(gcc_santos, layout = layout_with_lgl, vertex.color = adjustcolor('#FF6347', 0.1), vertex.frame.color = '#FF6347', vertex.size = strength(gcc_santos),vertex.label=lab_santos, vertex.label.color = 'black', vertex.label.cex = 0.9, vertex.label.dist = 0.5, edge.width = 3*E(g_santos)$weight/max(E(g_santos)$weight),edge.color="#FF6347", main = " Componente de Santos")
 
-plot(gcc_uribe, layout = layout_with_fr, vertex.color = adjustcolor('#FF6347', 0.1), vertex.frame.color = '#FF6347', vertex.size = 2*strength(gcc_uribe),vertex.label=NA, edge.width = 3*E(g_uribe)$weight/max(E(g_uribe)$weight),edge.color="#FF6347", main = "Componente de Uribe")
+plot(gcc_uribe, layout = layout_with_kk, vertex.color = adjustcolor('#FF6347', 0.1), vertex.frame.color = '#FF6347', vertex.size = strength(gcc_uribe),vertex.label=lab_uribe, vertex.label.color = 'black', vertex.label.cex = 0.9, vertex.label.dist = 0.5, edge.width = 3*E(g_uribe)$weight/max(E(g_uribe)$weight),edge.color="#FF6347", main = "Componente de Uribe")
 ```
 
 Para una mejor interpretación, se crean nuevamente dos redes para los bigramas de los discursos de Santos y Uribe pero filtrando por los que tengan una frecuencia mayor o igual que 2. 
@@ -1115,7 +1162,7 @@ xtable(grupos_duque %>%
 ### Santos: Top 5 grupo mayor {-}
 
 ```{r, echo=F}
-V(gcc2_santos)$membership <- kc_petro$membership
+V(gcc2_santos)$membership <- kc_santos$membership
 grupos_santos <- tibble(word = V(gcc2_santos) %>% names(), cluster = V(gcc2_santos)$membership, eigen = eigen_centrality(gcc2_santos, scale = T)$vector)
 grupos_santos %>%
   filter(cluster == which.max(table(kc_santos$membership))) %>%
